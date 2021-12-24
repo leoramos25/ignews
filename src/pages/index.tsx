@@ -4,6 +4,6 @@ export default function Home() {
   return (
     <h1
       className={styles.title}
-    >Hello Next.JS</h1>
+    >Hello <span>Next.JS</span></h1>
   );
 }
