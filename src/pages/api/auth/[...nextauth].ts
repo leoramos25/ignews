@@ -22,12 +22,27 @@ export default NextAuth({
 
       try {
         await faunadb.query(
-          query.Create(
-            query.Collection('users'),
-            { data: { email } }
+          query.If(
+            query.Not(
+              query.Exists(
+                query.Match(
+                  query.Index('user_by_email'),
+                  query.Casefold(user.email as string)
+                )
+              )
+            ),
+            query.Create(
+              query.Collection('users'),
+              { data: { email } }
+            ),
+            query.Get(
+              query.Match(
+                query.Index('user_by_email'),
+                query.Casefold(user.email as string)
+              )
+            )
           )
-        )
-
+        );
         return true;
       } catch {
         return false;
