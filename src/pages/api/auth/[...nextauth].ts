@@ -1,5 +1,8 @@
 import NextAuth from "next-auth";
 import GithubProvider from "next-auth/providers/github";
+import { query } from "faunadb";
+
+import { faunadb } from "../../../services/faunadb";
 
 export default NextAuth({
   providers: [
@@ -10,7 +13,25 @@ export default NextAuth({
         params: {
           scope: 'read:user'
         }
-      }
+      },
     }),
   ],
+  callbacks: {
+    async signIn({ user, account, profile }) {
+      const { email } = user;
+
+      try {
+        await faunadb.query(
+          query.Create(
+            query.Collection('users'),
+            { data: { email } }
+          )
+        )
+
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  }
 })
