@@ -1,9 +1,53 @@
 /* eslint-disable import/no-anonymous-default-export */
 import { NextApiRequest, NextApiResponse } from "next";
+import { Readable } from "stream";
+import Stripe from "stripe";
+import { stripe } from "../../services/stripe";
 
+async function buffer(readable: Readable) {
+  const chunks = [];
 
-export default (request: NextApiRequest, response: NextApiResponse) => {
-  console.log('envento recibido');
+  for await (const chunk of readable) {
+    chunks.push(
+      typeof chunk === 'string' ? Buffer.from(chunk) : chunk
+    );
+  }
 
-  response.status(200).json({ ok: true });
+  return Buffer.concat(chunks);
+}
+
+export const config = {
+  api: {
+    bodyParser: false
+  }
+}
+
+const relevantEvents = new Set([
+  'checkout.session.completed'
+]);
+
+export default async (request: NextApiRequest, response: NextApiResponse) => {
+  if (request.method === 'POST') {
+    const buf = await buffer(request);
+    const secret = request.headers['stripe-signature'] as string;
+
+    let event: Stripe.Event;
+
+    try {
+      event = stripe.webhooks.constructEvent(buf, secret, process.env.STRIPE_WEBHOOK_SECRET as string);
+    } catch (err: any) {
+      return response.status(400).send(`Webhook error: ${err.message}`)
+    }
+
+    const { type } = event;
+
+    if (relevantEvents.has(type)) {
+      console.log('Evento recebido', event);
+    }
+
+    response.json({ received: true });
+  } else {
+    response.setHeader('Allow', 'POST')
+    response.status(405).end('Method not allowed')
+  }
 }
